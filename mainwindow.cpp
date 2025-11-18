@@ -40,6 +40,8 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
 
    chargerVehicules();
+    rechargerTableSeancesDepuisDB();
+   afficherEmployes();
     marquerDatesCalendrier();
 
 
@@ -246,12 +248,83 @@ void MainWindow::on_pushButton_9_clicked()
 }
 
 
+void MainWindow::chargerVehicules()
+{
+    ui->tableWidget_Vehicule->setRowCount(0);
+
+    QSqlQuery query("SELECT MATRICULE, TYPE, ETAT_VOITURE, KILOMETRAGE, "  "TO_CHAR(DATE_MAINTENANCE, 'DD/MM/YYYY'), ASSURANCE, DISPONIBILITE, "  "TO_CHAR(DATE_ASSURANCE, 'DD/MM/YYYY') " "FROM VEHICULE");
+
+    int row = 0;
+    while (query.next()) {
+
+        ui->tableWidget_Vehicule->insertRow(row);
+        for (int col = 0; col < 8; ++col) {
+
+            ui->tableWidget_Vehicule->setItem(row, col, new QTableWidgetItem(query.value(col).toString()));
+        }
+        row++;
+    }
+}
+
+void MainWindow::rechargerTableSeancesDepuisDB()
+{
+    if (!ui->tabS) return; // Vérifie que le tableau existe
+    ui->tabS->setRowCount(0);
+
+    QSqlQuery query("SELECT ID_SEANCE, TYPE_SEANCE, TO_CHAR(DATE_SEANCE,'DD/MM/YYYY'), ""TO_CHAR(HEURE_DEBUT,'HH24:MI'), TO_CHAR(HEURE_ARRIVER,'HH24:MI'), ""LIEU_DEPART, PRIX FROM SEANCE");
+
+    int row = 0;
+    while (query.next()) {
+        ui->tabS->insertRow(row);
+        for (int col = 0; col < 7; ++col) {
+            ui->tabS->setItem(row, col, new QTableWidgetItem(query.value(col).toString()));
+        }
+        row++;
+    }
+}
+
+void MainWindow::afficherEmployes()
+{
+    QSqlQuery query("SELECT * FROM EMPLOYE");
+
+    ui->tableWidget_Employe->setRowCount(0); // clear table
+    int row = 0;
+    while (query.next()) {
+        ui->tableWidget_Employe->insertRow(row);
+        ui->tableWidget_Employe->setItem(row, 0, new QTableWidgetItem(query.value("ID_EMPLOYE").toString()));
+        ui->tableWidget_Employe->setItem(row, 1, new QTableWidgetItem(query.value("NOM").toString()));
+        ui->tableWidget_Employe->setItem(row, 2, new QTableWidgetItem(query.value("PRENOM").toString()));
+        ui->tableWidget_Employe->setItem(row, 3, new QTableWidgetItem(query.value("ROLE").toString()));
+        ui->tableWidget_Employe->setItem(row, 4, new QTableWidgetItem(query.value("NUMTEL").toString()));
+        ui->tableWidget_Employe->setItem(row, 5, new QTableWidgetItem(query.value("EMAIL").toString()));
+        ui->tableWidget_Employe->setItem(row, 6, new QTableWidgetItem(query.value("SPECIALITE").toString()));
+        ui->tableWidget_Employe->setItem(row, 7, new QTableWidgetItem(query.value("SALAIRE").toString()));
+        ui->tableWidget_Employe->setItem(row, 8, new QTableWidgetItem(query.value("MDP").toString()));
+        row++;
+    }
+}
+
+void MainWindow::chargerCandidats()
+{
+    QSqlQuery query("SELECT * FROM CANDIDAT");
+    ui->tableWidget_Candidat->setRowCount(0);
+
+    int row = 0;
+    while (query.next()) {
+        ui->tableWidget_Candidat->insertRow(row);
+        for (int col = 0; col < 6; ++col) {
+            ui->tableWidget_Candidat->setItem(row, col, new QTableWidgetItem(query.value(col).toString()));
+        }
+        row++;
+    }
+}
+
 void MainWindow::on_pushButton_Ajouter_clicked()
 {
 
         QString matricule = ui->matricule->text().trimmed();
         QString type = ui->comboBox_TypeVehicule->currentText();
-        QString etat = ui->radioButton_EnPanne->isChecked() ? "En panne" : "Fonctionnelle";
+ QString etat;
         QString dispo = ui->comboBox_dipo->currentText();
         QString km = ui->lineEdit_Kilometrage->text().trimmed();
         QString assurance;
@@ -259,6 +332,10 @@ void MainWindow::on_pushButton_Ajouter_clicked()
         QDate dateAssurance = ui->date_assurance->date();
         QDate today = QDate::currentDate();
 
+        if (ui->radioButton_EnPanne->isChecked())
+            etat = "En panne";
+        else
+            etat = "Fonctionnelle";
 
         if (ui->radioButton_TousRisque->isChecked())
             assurance = "Tous Risque";
@@ -349,23 +426,6 @@ void MainWindow::on_pushButton_Ajouter_clicked()
 
 
 
-void MainWindow::chargerVehicules()
-{
-    ui->tableWidget_Vehicule->setRowCount(0);
-
-    QSqlQuery query("SELECT MATRICULE, TYPE, ETAT_VOITURE, KILOMETRAGE, "  "TO_CHAR(DATE_MAINTENANCE, 'DD/MM/YYYY'), ASSURANCE, DISPONIBILITE, "  "TO_CHAR(DATE_ASSURANCE, 'DD/MM/YYYY') " "FROM VEHICULE");
-
-    int row = 0;
-    while (query.next()) {
-
-        ui->tableWidget_Vehicule->insertRow(row);
-        for (int col = 0; col < 8; ++col) {
-
-            ui->tableWidget_Vehicule->setItem(row, col, new QTableWidgetItem(query.value(col).toString()));
-        }
-        row++;
-    }
-}
 
 
 void MainWindow::on_pushButton_supprimer_clicked()
@@ -543,6 +603,65 @@ void MainWindow::on_pushButton_Rechercher_clicked()
 
     ui->lineEdit_Recherche->clear();
 
+}
+
+void MainWindow::on_pushButton_trier_clicked()
+{
+    QString critere = ui->comboBox_Trier->currentText();
+
+    if (critere != "Etat" && critere != "Disponibilite") {
+        QMessageBox::warning(this, "Erreur", "Veuillez choisir un critère de tri.");
+        return;
+    }
+
+    QString requete;
+
+    if (critere == "Etat") {
+        requete =
+            "SELECT MATRICULE, TYPE, ETAT_VOITURE, KILOMETRAGE, "
+            "TO_CHAR(DATE_MAINTENANCE,'DD/MM/YYYY'), ASSURANCE, DISPONIBILITE, "
+            "TO_CHAR(DATE_ASSURANCE,'DD/MM/YYYY') "
+            "FROM VEHICULE WHERE ETAT_VOITURE = 'Fonctionnelle'";
+    }
+    else if (critere == "Disponibilite") {
+        requete =
+            "SELECT MATRICULE, TYPE, ETAT_VOITURE, KILOMETRAGE, "
+            "TO_CHAR(DATE_MAINTENANCE,'DD/MM/YYYY'), ASSURANCE, DISPONIBILITE, "
+            "TO_CHAR(DATE_ASSURANCE,'DD/MM/YYYY') "
+            "FROM VEHICULE WHERE DISPONIBILITE = 'OUI'";
+    }
+
+    // ✅ utiliser la connexion active
+    QSqlQuery query(QSqlDatabase::database());
+
+    if (!query.exec(requete)) {
+        QMessageBox::critical(this, "Erreur SQL", query.lastError().text());
+        return;
+    }
+
+    ui->tableWidget_Vehicule->setRowCount(0);
+    int row = 0;
+
+    while (query.next()) {
+        ui->tableWidget_Vehicule->insertRow(row);
+
+        for (int col = 0; col < 8; col++) {
+            ui->tableWidget_Vehicule->setItem(
+                row, col,
+                new QTableWidgetItem(query.value(col).toString())
+                );
+        }
+
+        row++;
+    }
+
+    QMessageBox::information(this, "Tri appliqué",
+                             QString("Affichage filtré selon : %1").arg(critere));
+
+    // recharge après 20 secondes
+    QTimer::singleShot(20000, this, [this]() {
+        chargerVehicules();
+    });
 }
 
 
@@ -844,4 +963,508 @@ void MainWindow::marquerDatesCalendrier()
     }
 }
 
+
+//ajouter seance
+// Ajouter séance
+void MainWindow::on_pushButton_75_clicked()
+{
+
+        QString id    = ui->idS->text().trimmed();
+        QString type  = ui->typeS->currentText().trimmed();
+        QDate   date  = ui->dateS_2->date();
+        QTime   hDeb  = ui->hDeb->time();
+        QTime   hArr  = ui->hArr->time();
+        QString lieu  = ui->lieuS->text().trimmed();
+        QString prixS = ui->prixS->text().trimmed();
+
+        if (id.isEmpty()) { QMessageBox::warning(this,"Erreur","ID requis."); return; }
+        if (lieu.isEmpty()) { QMessageBox::warning(this,"Erreur","Lieu requis."); return; }
+
+        double prix = prixS.toDouble();
+
+        QSqlQuery checkQuery;
+        checkQuery.prepare("SELECT COUNT(*) FROM SEANCE WHERE ID_SEANCE = :id");
+        checkQuery.bindValue(":id", id);
+        if (!checkQuery.exec() || checkQuery.next() && checkQuery.value(0).toInt() > 0) {
+            QMessageBox::warning(this,"Erreur","ID déjà existant."); return;
+        }
+
+        QSqlQuery query;
+        // SOLUTION : Utiliser le format DATE Oracle standard ou format ISO
+        query.prepare(R"(INSERT INTO SEANCE (ID_SEANCE, TYPE_SEANCE, DATE_SEANCE, HEURE_DEBUT, HEURE_ARRIVER, LIEU_DEPART, PRIX)
+                     VALUES (:id, :type, TO_DATE(:date, 'YYYY-MM-DD'), TO_DATE(:hDeb, 'HH24:MI'), TO_DATE(:hArr, 'HH24:MI'), :lieu, :prix))");
+        query.bindValue(":id", id);
+        query.bindValue(":type", type);
+        query.bindValue(":date", date.toString("yyyy-MM-dd")); // Format ISO
+        query.bindValue(":hDeb", hDeb.toString("HH:mm"));
+        query.bindValue(":hArr", hArr.toString("HH:mm"));
+        query.bindValue(":lieu", lieu);
+        query.bindValue(":prix", prix);
+
+        if (query.exec()) {
+            QMessageBox::information(this,"Succès","Séance ajoutée !");
+            rechargerTableSeancesDepuisDB();
+            ui->idS->clear();
+            ui->lieuS->clear();
+            ui->prixS->clear();
+        } else {
+            QMessageBox::critical(this,"Erreur","Échec INSERT : " + query.lastError().text());
+        }
+
+}
+
+
+// Modifier séance
+void MainWindow::on_pushButton_146_clicked()
+{
+        QString id    = ui->idS->text().trimmed();
+        if (id.isEmpty()) { QMessageBox::warning(this,"Erreur","ID requis."); return; }
+
+        QSqlQuery checkQuery;
+        checkQuery.prepare("SELECT COUNT(*) FROM SEANCE WHERE ID_SEANCE = :id");
+        checkQuery.bindValue(":id", id);
+        checkQuery.exec(); checkQuery.next();
+        if (checkQuery.value(0).toInt() == 0) { QMessageBox::warning(this,"Erreur","ID inexistant."); return; }
+
+        QString type  = ui->typeS->currentText().trimmed();
+        QDate date    = ui->dateS_2->date();
+        QTime hDeb    = ui->hDeb->time();
+        QTime hArr    = ui->hArr->time();
+        QString lieu  = ui->lieuS->text().trimmed();
+        double prix   = ui->prixS->text().toDouble();
+
+        QSqlQuery query;
+        // Même correction pour UPDATE
+        query.prepare(R"(UPDATE SEANCE SET TYPE_SEANCE=:type, DATE_SEANCE=TO_DATE(:date,'YYYY-MM-DD'),
+                     HEURE_DEBUT=TO_DATE(:hDeb,'HH24:MI'), HEURE_ARRIVER=TO_DATE(:hArr,'HH24:MI'),
+                     LIEU_DEPART=:lieu, PRIX=:prix WHERE ID_SEANCE=:id)");
+        query.bindValue(":type", type);
+        query.bindValue(":date", date.toString("yyyy-MM-dd")); // Format ISO
+        query.bindValue(":hDeb", hDeb.toString("HH:mm"));
+        query.bindValue(":hArr", hArr.toString("HH:mm"));
+        query.bindValue(":lieu", lieu);
+        query.bindValue(":prix", prix);
+        query.bindValue(":id", id);
+
+        if (query.exec()) {
+            QMessageBox::information(this,"Succès","Séance modifiée !");
+            rechargerTableSeancesDepuisDB();
+        } else {
+            QMessageBox::critical(this,"Erreur","Échec UPDATE : " + query.lastError().text());
+        }
+
+}
+
+// Supprimer séance
+void MainWindow::on_pushButton_12_clicked()
+{
+    QString id = ui->lineEdit_ID_Supprimer->text().trimmed();
+    if (id.isEmpty()) { QMessageBox::warning(this,"Erreur","ID requis."); return; }
+
+    QSqlQuery checkQuery;
+    checkQuery.prepare("SELECT COUNT(*) FROM SEANCE WHERE ID_SEANCE=:id");
+    checkQuery.bindValue(":id", id); checkQuery.exec(); checkQuery.next();
+    if (checkQuery.value(0).toInt() == 0) { QMessageBox::warning(this,"Erreur","ID inexistant."); return; }
+
+    if (QMessageBox::question(this,"Confirmation","Supprimer cette séance ?",QMessageBox::Yes|QMessageBox::No)!=QMessageBox::Yes) return;
+
+    QSqlQuery query;
+    query.prepare("DELETE FROM SEANCE WHERE ID_SEANCE=:id");
+    query.bindValue(":id", id);
+
+    if (query.exec()) {
+        QMessageBox::information(this,"Succès","Séance supprimée !");
+        rechargerTableSeancesDepuisDB();
+        ui->lineEdit_ID_Supprimer->clear();
+    } else {
+        QMessageBox::critical(this,"Erreur","Échec DELETE : " + query.lastError().text());
+    }
+}
+
+// Cliquer sur ligne du tableau séance
+void MainWindow::on_tableWidget_11_cellClicked(int row, int column)
+{
+    Q_UNUSED(column);
+    if (row < 0 || row >= ui->tabS->rowCount()) return;
+
+    ui->idS->setText(ui->tabS->item(row,0)->text());
+    ui->typeS->setCurrentText(ui->tabS->item(row,1)->text());
+    ui->dateS_2->setDate(QDate::fromString(ui->tabS->item(row,2)->text(),"dd/MM/yyyy"));
+    ui->hDeb->setTime(QTime::fromString(ui->tabS->item(row,3)->text(),"HH:mm"));
+    ui->hArr->setTime(QTime::fromString(ui->tabS->item(row,4)->text(),"HH:mm"));
+    ui->lieuS->setText(ui->tabS->item(row,5)->text());
+    ui->prixS->setText(ui->tabS->item(row,6)->text());
+}
+
+void MainWindow::on_pushButton_13_clicked()
+{
+
+
+        if (!ui->tabS) return;
+
+        QString searchType = ui->comboBox_9->currentText().trimmed();
+        if (searchType.isEmpty()) return;
+
+        QSqlQuery query;
+        bool ok = false;
+
+        if (searchType == "Date") {
+            QDate date = ui->dateS_2->date();
+            QString dateStr = date.toString("dd/MM/yyyy");
+
+            query.prepare("SELECT ID_SEANCE, TYPE_SEANCE, TO_CHAR(DATE_SEANCE,'DD/MM/YYYY'), "
+                          "TO_CHAR(HEURE_DEBUT,'HH24:MI'), TO_CHAR(HEURE_ARRIVER,'HH24:MI'), "
+                          "LIEU_DEPART, PRIX FROM SEANCE WHERE TO_CHAR(DATE_SEANCE,'DD/MM/YYYY') = :date");
+            query.bindValue(":date", dateStr);
+            ok = query.exec();
+        }
+        else if (searchType == "Lieu de départ") {
+            QString lieu = ui->lieuS->text().trimmed();
+            if (lieu.isEmpty()) {
+                QMessageBox::warning(this, "Recherche", "Saisis le lieu de départ.");
+                return;
+            }
+
+            query.prepare("SELECT ID_SEANCE, TYPE_SEANCE, TO_CHAR(DATE_SEANCE,'DD/MM/YYYY'), "
+                          "TO_CHAR(HEURE_DEBUT,'HH24:MI'), TO_CHAR(HEURE_ARRIVER,'HH24:MI'), "
+                          "LIEU_DEPART, PRIX FROM SEANCE WHERE UPPER(LIEU_DEPART) LIKE UPPER(:lieu)");
+            query.bindValue(":lieu", "%" + lieu + "%");
+            ok = query.exec();
+        }
+
+        if (!ok) {
+            QMessageBox::critical(this, "Erreur SQL", query.lastError().text());
+            return;
+        }
+
+        // Vider et remplir le tableau avec les résultats
+        ui->tabS->setRowCount(0);
+        int row = 0;
+        while (query.next()) {
+            ui->tabS->insertRow(row);
+            for (int col = 0; col < 7; ++col) {
+                ui->tabS->setItem(row, col, new QTableWidgetItem(query.value(col).toString()));
+            }
+            row++;
+        }
+
+        if (row == 0) {
+            QMessageBox::information(this, "Recherche", "Aucune séance trouvée.");
+        }
+
+
+}
+
+
+
+
+//EMPLOYE
+void MainWindow::on_pushButton_Rechercher_2_clicked()
+{
+    QString searchID = ui->lineEdit_Rechercheemp->text().trimmed();
+    bool found = false;
+
+    for (int i = 0; i < ui->tableWidget_Employe->rowCount(); ++i)
+    {
+        QTableWidgetItem *item = ui->tableWidget_Employe->item(i, 0);
+
+        if (item && item->text().compare(searchID, Qt::CaseInsensitive) == 0)
+        {
+            found = true;
+
+            for (int j = 0; j < ui->tableWidget_Employe->columnCount(); ++j)
+            {
+                ui->tableWidget_Employe->item(i, j)->setBackground(QBrush(QColor("green")));
+            }
+
+            ui->tableWidget_Employe->scrollToItem(item);
+
+            QTimer::singleShot(20000, [this, i]() {
+                for (int j = 0; j < ui->tableWidget_Employe->columnCount(); ++j)
+                {
+                    ui->tableWidget_Employe->item(i, j)->setBackground(Qt::white);
+                }
+            });
+
+            break;
+        }
+    }
+
+    if (!found)
+    {
+        QMessageBox::information(this, "Erreur", "Aucun employé trouvé avec cet ID !");
+    }
+
+    ui->lineEdit_Rechercheemp->clear();
+}
+
+
+void MainWindow::on_stats_emp_clicked()
+{
+    int total = ui->tableWidget_Employe->rowCount();
+    if (total == 0) {
+        QMessageBox::information(this, "Statistiques", "👷 Aucun employé trouvé !");
+        return;
+    }
+
+    int chauffeurs = 0;
+    int assistants = 0;
+
+    // Supposons que la colonne Spécialité = colonne 5
+    int colSpecialite = 5;
+
+    for (int i = 0; i < total; ++i) {
+        QString spec = ui->tableWidget_Employe->item(i, colSpecialite)->text().trimmed();
+        if (spec.compare("voiture", Qt::CaseInsensitive) == 0)
+            chauffeurs++;
+        else if (spec.compare("assistant", Qt::CaseInsensitive) == 0)
+            assistants++;
+    }
+
+    QString message = QString(
+                          "📊 **Statistiques Employés**\n\n"
+                          "👥 Total : %1\n"
+                          "🚗 Spécialité voiture : %2\n"
+                          "🧾 Spécialité assistant : %3"
+                          ).arg(total).arg(chauffeurs).arg(assistants);
+
+    QMessageBox::information(this, "Statistiques", message);
+}
+
+
+
+
+
+void MainWindow::on_pushButton_ajouter_emp_clicked()
+{
+
+        QString id = ui->lineEdit_ID->text().trimmed();
+        QString nom = ui->lineEdit_Nom->text();
+        QString prenom = ui->lineEdit_Prenom->text();
+        QString role = ui->comboBox_Role->currentText();
+        QString numTel = ui->lineEdit_NumTel->text();
+        QString email = ui->lineEdit_Email->text();
+        QString specialite = ui->comboBox_Specialite->currentText();
+        float salaire = ui->lineEdit_Salaire->text().toFloat();
+        QString motPasse = ui->lineEdit_Mdp->text();
+
+        QSqlQuery query;
+        query.prepare(R"(INSERT INTO EMPLOYE
+                     (ID_EMPLOYE, NOM, PRENOM, ROLE, NUMTEL, EMAIL, SPECIALITE, SALAIRE, MDP)
+                     VALUES (:id, :nom, :prenom, :role, :numTel, :email, :spec, :salaire, :mdp))");
+
+        query.bindValue(":id", id);
+        query.bindValue(":nom", nom);
+        query.bindValue(":prenom", prenom);
+        query.bindValue(":role", role);
+        query.bindValue(":numTel", numTel);
+        query.bindValue(":email", email);
+        query.bindValue(":spec", specialite);
+        query.bindValue(":salaire", salaire);
+        query.bindValue(":mdp", motPasse);
+
+        if (query.exec()) {
+            QMessageBox::information(this, "Succès", "Employé ajouté !");
+            afficherEmployes(); // rafraîchit le tableau
+        } else {
+            QMessageBox::critical(this, "Erreur", query.lastError().text());
+        }
+
+
+}
+
+
+
+ void MainWindow::on_pushButton_supp_emp_clicked()
+{
+        QString id = ui->lineEdit_ID->text().trimmed();
+
+        QSqlQuery query;
+        query.prepare("DELETE FROM EMPLOYE WHERE ID_EMPLOYE=:id");
+        query.bindValue(":id", id);
+
+        if (query.exec()) {
+            QMessageBox::information(this, "Succès", "Employé supprimé !");
+            afficherEmployes();
+        } else {
+            QMessageBox::critical(this, "Erreur", query.lastError().text());
+        }
+}
+
+
+
+
+void MainWindow::on_pushButton_modifier_emp_clicked()
+{
+
+        QString id = ui->lineEdit_ID->text().trimmed();
+        QString nom = ui->lineEdit_Nom->text();
+        QString prenom = ui->lineEdit_Prenom->text();
+        QString role = ui->comboBox_Role->currentText();
+        QString numTel = ui->lineEdit_NumTel->text();
+        QString email = ui->lineEdit_Email->text();
+        QString specialite = ui->comboBox_Specialite->currentText();
+        float salaire = ui->lineEdit_Salaire->text().toFloat();
+        QString motPasse = ui->lineEdit_Mdp->text();
+
+        QSqlQuery query;
+        query.prepare(R"(UPDATE EMPLOYE SET
+                     NOM=:nom, PRENOM=:prenom, ROLE=:role, NUMTEL=:numTel, EMAIL=:email,
+                     SPECIALITE=:spec, SALAIRE=:salaire, MDP=:mdp
+                     WHERE ID_EMPLOYE=:id)");
+
+        query.bindValue(":id", id);
+        query.bindValue(":nom", nom);
+        query.bindValue(":prenom", prenom);
+        query.bindValue(":role", role);
+        query.bindValue(":numTel", numTel);
+        query.bindValue(":email", email);
+        query.bindValue(":spec", specialite);
+        query.bindValue(":salaire", salaire);
+        query.bindValue(":mdp", motPasse);
+
+        if (query.exec()) {
+            QMessageBox::information(this, "Succès", "Employé modifié !");
+            afficherEmployes();
+        } else {
+            QMessageBox::critical(this, "Erreur", query.lastError().text());
+        }
+    }
+
+void MainWindow::on_pushButton_33_clicked()
+{
+    ui->lineEdit_ID->clear();
+    ui->lineEdit_Nom->clear();
+    ui->lineEdit_Prenom->clear();
+    ui->comboBox_Role->setCurrentIndex(0);         // remet le premier rôle par défaut
+    ui->lineEdit_NumTel->clear();
+    ui->lineEdit_Email->clear();
+    ui->comboBox_Specialite->setCurrentIndex(0);  // remet la première spécialité
+    ui->lineEdit_Salaire->clear();
+    ui->lineEdit_Mdp->clear();
+}
+
+
+
+//candidat
+
+void MainWindow::on_pushButton_23_clicked()  // ➕ Ajouter un candidat
+{
+    QString id = ui->lineEdit_ID_Candidat->text().trimmed();
+    QString nom = ui->lineEdit_Nom_Candidat->text().trimmed();
+    QString prenom = ui->lineEdit_Prenom_Candidat->text().trimmed();
+    QString num_tel = ui->lineEdit_NumTel_Candidat->text().trimmed();
+    QString adresse = ui->lineEdit_Adresse_Candidat->text().trimmed();
+    QString mot_de_passe = ui->lineEdit_Mdp_Candidat->text().trimmed();
+
+    if (id.isEmpty() || nom.isEmpty() || prenom.isEmpty() || num_tel.isEmpty() ||
+        adresse.isEmpty() || mot_de_passe.isEmpty()) {
+        QMessageBox::warning(this, "Champs manquants", "Veuillez remplir tous les champs avant d'ajouter un candidat.");
+        return;
+    }
+
+    QSqlQuery query;
+    query.prepare("INSERT INTO CANDIDAT (ID_CANDIDAT, NOM, PRENOM, NUM_TEL, ADRESSE, MOT_DE_PASSE) "
+                  "VALUES (:id, :nom, :prenom, :num_tel, :adresse, :mdp)");
+
+    query.bindValue(":id", id);
+    query.bindValue(":nom", nom);
+    query.bindValue(":prenom", prenom);
+    query.bindValue(":num_tel", num_tel);
+    query.bindValue(":adresse", adresse);
+    query.bindValue(":mdp", mot_de_passe);
+
+    if (!query.exec()) {
+        QMessageBox::critical(this, "Erreur SQL", "Échec de l'ajout : " + query.lastError().text());
+        return;
+    }
+
+    QMessageBox::information(this, "Succès", "Candidat ajouté avec succès !");
+    chargerCandidats();
+}
+
+
+void MainWindow::on_pushButton_147_clicked()
+{
+    QString id = ui->lineEdit_ID_Candidat->text().trimmed();
+    QString nom = ui->lineEdit_Nom_Candidat->text().trimmed();
+    QString prenom = ui->lineEdit_Prenom_Candidat->text().trimmed();
+    QString num_tel = ui->lineEdit_NumTel_Candidat->text().trimmed();
+    QString adresse = ui->lineEdit_Adresse_Candidat->text().trimmed();
+    QString mot_de_passe = ui->lineEdit_Mdp_Candidat->text().trimmed();
+
+    if (id.isEmpty()) {
+        QMessageBox::warning(this, "Erreur", "Veuillez entrer l'ID du candidat à modifier.");
+        return;
+    }
+
+    QSqlQuery query;
+    query.prepare("UPDATE CANDIDAT SET NOM = :nom, PRENOM = :prenom, NUM_TEL = :num_tel, "
+                  "ADRESSE = :adresse, MOT_DE_PASSE = :mdp WHERE ID_CANDIDAT = :id");
+
+    query.bindValue(":id", id);
+    query.bindValue(":nom", nom);
+    query.bindValue(":prenom", prenom);
+    query.bindValue(":num_tel", num_tel);
+    query.bindValue(":adresse", adresse);
+    query.bindValue(":mdp", mot_de_passe);
+
+    if (!query.exec()) {
+        QMessageBox::critical(this, "Erreur SQL", "Échec de la modification : " + query.lastError().text());
+        return;
+    }
+
+    if (query.numRowsAffected() == 0) {
+        QMessageBox::warning(this, "Avertissement", "Aucun candidat trouvé avec cet ID.");
+        return;
+    }
+
+    QMessageBox::information(this, "Succès", "Candidat modifié avec succès !");
+    chargerCandidats();
+}
+
+
+void MainWindow::on_pushButton_20_clicked()
+{
+    QString id = ui->lineEdit_ID_Candidat->text().trimmed();
+
+    if (id.isEmpty()) {
+        QMessageBox::warning(this, "Erreur", "Veuillez entrer l'ID du candidat à supprimer.");
+        return;
+    }
+
+    QSqlQuery query;
+    query.prepare("DELETE FROM CANDIDAT WHERE ID = :id");
+    query.bindValue(":id", id);
+
+    if (!query.exec()) {
+        QMessageBox::critical(this, "Erreur SQL", "Échec de la suppression : " + query.lastError().text());
+        return;
+    }
+
+    if (query.numRowsAffected() == 0) {
+        QMessageBox::warning(this, "Avertissement", "Aucun candidat trouvé avec cet ID.");
+        return;
+    }
+
+    QMessageBox::information(this, "Succès", "Candidat supprimé avec succès !");
+    chargerCandidats();
+}
+
+
+
+
+
+
+
+void MainWindow::on_pushButton_77_clicked()
+{
+    ui->idS->clear();
+    ui->lieuS->clear();
+    ui->prixS->clear();
+    ui->typeS->setCurrentIndex(0);
+    ui->dateS_2->setDate(QDate::currentDate());
+    ui->hDeb->setTime(QTime(8,0));
+    ui->hArr->setTime(QTime(9,0));
+}
 
