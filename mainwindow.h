@@ -116,6 +116,47 @@ private slots:
     void on_calendarWidget_clicked(const QDate &date);
     void marquerDatesCalendrier();
 
+    void on_pushButton_75_clicked();
+
+    void on_pushButton_12_clicked();
+
+    void on_pushButton_13_clicked();
+
+    void on_tableWidget_11_cellClicked(int row, int column);
+
+
+
+    void on_pushButton_146_clicked();
+    void rechargerTableSeancesDepuisDB();
+
+    void on_pushButton_Rechercher_2_clicked();
+
+    void on_stats_emp_clicked();
+
+    void on_pushButton_ajouter_emp_clicked();
+
+
+
+    void on_pushButton_modifier_emp_clicked();
+    void on_pushButton_supp_emp_clicked();
+
+    void afficherEmployes();
+
+    void on_pushButton_33_clicked();
+
+
+
+    void on_pushButton_23_clicked();
+
+    void on_pushButton_147_clicked();
+
+    void on_pushButton_20_clicked();
+
+    void chargerCandidats();
+    void on_pushButton_trier_clicked();
+
+    void on_pushButton_77_clicked();
+
 private:
     Ui::MainWindow *ui;
 };
