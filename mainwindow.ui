@@ -3558,7 +3558,7 @@ background: red ;
        <property name="geometry">
         <rect>
          <x>50</x>
-         <y>140</y>
+         <y>170</y>
          <width>91</width>
          <height>20</height>
         </rect>
@@ -3583,7 +3583,7 @@ background: red ;
        <property name="geometry">
         <rect>
          <x>50</x>
-         <y>190</y>
+         <y>220</y>
          <width>63</width>
          <height>20</height>
         </rect>
@@ -3608,7 +3608,7 @@ background: red ;
        <property name="geometry">
         <rect>
          <x>50</x>
-         <y>240</y>
+         <y>270</y>
          <width>91</width>
          <height>20</height>
         </rect>
@@ -3633,7 +3633,7 @@ background: red ;
        <property name="geometry">
         <rect>
          <x>50</x>
-         <y>300</y>
+         <y>330</y>
          <width>91</width>
          <height>20</height>
         </rect>
@@ -3658,7 +3658,7 @@ background: red ;
        <property name="geometry">
         <rect>
          <x>50</x>
-         <y>360</y>
+         <y>380</y>
          <width>101</width>
          <height>20</height>
         </rect>
@@ -3683,7 +3683,7 @@ background: red ;
        <property name="geometry">
         <rect>
          <x>50</x>
-         <y>80</y>
+         <y>110</y>
          <width>121</width>
          <height>21</height>
         </rect>
@@ -3708,7 +3708,7 @@ background: red ;
        <property name="geometry">
         <rect>
          <x>50</x>
-         <y>420</y>
+         <y>430</y>
          <width>81</width>
          <height>20</height>
         </rect>
@@ -3765,8 +3765,8 @@ background: red ;
       <widget class="QDateEdit" name="dateS_2">
        <property name="geometry">
         <rect>
-         <x>190</x>
-         <y>190</y>
+         <x>200</x>
+         <y>220</y>
          <width>131</width>
          <height>26</height>
         </rect>
@@ -3780,8 +3780,8 @@ selection-color: rgb(0, 0, 0);</string>
       <widget class="QTimeEdit" name="hDeb">
        <property name="geometry">
         <rect>
-         <x>190</x>
-         <y>240</y>
+         <x>200</x>
+         <y>270</y>
          <width>131</width>
          <height>26</height>
         </rect>
@@ -3795,8 +3795,8 @@ background-color: rgb(255, 255, 255);</string>
       <widget class="QTimeEdit" name="hArr">
        <property name="geometry">
         <rect>
-         <x>190</x>
-         <y>300</y>
+         <x>200</x>
+         <y>330</y>
          <width>131</width>
          <height>26</height>
         </rect>
@@ -3810,8 +3810,8 @@ background-color: rgb(255, 255, 255);</string>
       <widget class="QComboBox" name="typeS">
        <property name="geometry">
         <rect>
-         <x>190</x>
-         <y>80</y>
+         <x>200</x>
+         <y>110</y>
          <width>131</width>
          <height>26</height>
         </rect>
@@ -3833,8 +3833,8 @@ background-color: rgb(255, 255, 255);</string>
       <widget class="QLineEdit" name="idS">
        <property name="geometry">
         <rect>
-         <x>190</x>
-         <y>140</y>
+         <x>200</x>
+         <y>170</y>
          <width>131</width>
          <height>26</height>
         </rect>
@@ -3869,8 +3869,8 @@ color: rgb(0, 0, 0);
       <widget class="QLineEdit" name="lieuS">
        <property name="geometry">
         <rect>
-         <x>190</x>
-         <y>360</y>
+         <x>200</x>
+         <y>380</y>
          <width>131</width>
          <height>26</height>
         </rect>
@@ -3887,8 +3887,8 @@ color: rgb(0, 0, 0);
       <widget class="QLineEdit" name="prixS">
        <property name="geometry">
         <rect>
-         <x>190</x>
-         <y>420</y>
+         <x>200</x>
+         <y>430</y>
          <width>131</width>
          <height>26</height>
         </rect>
@@ -3897,6 +3897,82 @@ color: rgb(0, 0, 0);
         <string notr="true">background-color: white;
 color: rgb(0, 0, 0);
 </string>
+       </property>
+      </widget>
+      <widget class="QComboBox" name="typeS_2">
+       <property name="geometry">
+        <rect>
+         <x>200</x>
+         <y>10</y>
+         <width>131</width>
+         <height>26</height>
+        </rect>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: rgb(0, 0, 0);</string>
+       </property>
+      </widget>
+      <widget class="QComboBox" name="typeS_3">
+       <property name="geometry">
+        <rect>
+         <x>200</x>
+         <y>60</y>
+         <width>131</width>
+         <height>26</height>
+        </rect>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: rgb(0, 0, 0);</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_64">
+       <property name="geometry">
+        <rect>
+         <x>50</x>
+         <y>60</y>
+         <width>121</width>
+         <height>21</height>
+        </rect>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>9</pointsize>
+         <italic>false</italic>
+         <bold>false</bold>
+         <underline>false</underline>
+         <strikeout>false</strikeout>
+        </font>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: rgb(255, 0, 0);</string>
+       </property>
+       <property name="text">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; text-decoration: underline;&quot;&gt;Candidat&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_65">
+       <property name="geometry">
+        <rect>
+         <x>50</x>
+         <y>10</y>
+         <width>121</width>
+         <height>21</height>
+        </rect>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>9</pointsize>
+         <italic>false</italic>
+         <bold>false</bold>
+         <underline>false</underline>
+         <strikeout>false</strikeout>
+        </font>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: rgb(255, 0, 0);</string>
+       </property>
+       <property name="text">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; text-decoration: underline; color:#000000;&quot;&gt;Employee&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
       </widget>
      </widget>

@@ -26,6 +26,7 @@ public:
 
     // Validation
     static QStringList validate(const Seance& s);
+
     // Existence
     static bool existe(const QString& id);
 
@@ -37,6 +38,17 @@ public:
 
     // Export PDF
     static bool exporterPDF(const QString& filename);
+
+    // Validation pour recherche et tri
+    static bool isValidSearchCriteria(const QString& critere);
+    static bool isValidSortCriteria(const QString& critere);
+    static QString sanitizeSearchInput(const QString& input);
+    static bool isValidSearchInput(const QString& input);
+
+    // Validation spécifique pour la recherche
+    static bool isValidDateSearch(const QString& dateStr);
+    static bool isValidLieuSearch(const QString& lieu);
+    static QSqlQueryModel* rechercherParCritere(const QString& critere, const QString& valeur);
 
     // Données
     QString id_seance;

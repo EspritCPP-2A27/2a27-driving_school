@@ -19,8 +19,23 @@
 #include <QDialog>
 #include <QTextEdit>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QFont>
 #include <QMap>
+#include <QToolTip>
+#include <QRegularExpression>
+#include <QLabel>
+#include <QGroupBox>
+
+// Ajouter les includes pour les graphiques - version sans namespace
+#include <QChartView>
+#include <QPieSeries>
+#include <QPieSlice>
+#include <QBarSeries>
+#include <QBarSet>
+#include <QValueAxis>
+#include <QBarCategoryAxis>
+
 // ---------------------------------------
 static void setHeaders(QTableWidget* tabS)
 {
@@ -91,6 +106,13 @@ MainWindow::MainWindow(QWidget *parent)
     if (btnTri) {
         connect(btnTri, &QPushButton::clicked, this, &MainWindow::on_pushButton_TrierSeance_clicked);
         qDebug() << "Bouton de tri connecté";
+    }
+
+    // Connexion pour la validation en temps réel du champ de recherche
+    if (ui->lineEdit_Recherche_2) {
+        connect(ui->lineEdit_Recherche_2, &QLineEdit::textChanged,
+                this, &MainWindow::on_lineEdit_Recherche_2_textChanged);
+        qDebug() << "Validation en temps réel connectée pour le champ de recherche";
     }
 
     // Recharge si la base est déjà ouverte
@@ -268,22 +290,79 @@ void MainWindow::on_pushButton_Rechercher2_clicked()
     }
 
     const QString critere = ui->rechS ? ui->rechS->currentText() : QString();
-    const QString key = ui->lineEdit_Recherche_2 ? ui->lineEdit_Recherche_2->text().trimmed() : QString();
+    QString key = ui->lineEdit_Recherche_2 ? ui->lineEdit_Recherche_2->text().trimmed() : QString();
+
+    // Validation du critère de recherche
+    if (!Seance::isValidSearchCriteria(critere)) {
+        QMessageBox::warning(this, "Recherche", "Critère de recherche invalide.");
+        return;
+    }
 
     if (key.isEmpty()) {
         QMessageBox::information(this, "Recherche", "Saisis un mot-clé.");
         return;
     }
 
-    if (critere.isEmpty()) {
-        QMessageBox::information(this, "Recherche", "Sélectionne un critère de recherche.");
+    // Validation spécifique selon le critère
+    bool validationOk = true;
+    QString messageErreur;
+
+    if (critere == "Date") {
+        if (!Seance::isValidDateSearch(key)) {
+            validationOk = false;
+            messageErreur =
+                "Format de date invalide !\n"
+                "Formats acceptés : DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY\n"
+                "Exemples : 25/12/2024, 25-12-2024, 25.12.2024\n"
+                "La date ne doit pas être dans le futur.";
+        }
+    } else if (critere == "Lieu_depart") {
+        if (!Seance::isValidLieuSearch(key)) {
+            validationOk = false;
+            messageErreur =
+                "Format de lieu invalide !\n"
+                "Caractères autorisés : lettres, chiffres, espaces, - _ . , ! ? ( ) & : /\n"
+                "Longueur maximale : 100 caractères";
+        }
+    } else {
+        // Validation générique pour les autres critères
+        key = Seance::sanitizeSearchInput(key);
+        if (!Seance::isValidSearchInput(key)) {
+            validationOk = false;
+            messageErreur =
+                "Le terme de recherche contient des caractères non autorisés.\n"
+                "Seules les lettres, chiffres, espaces et certains caractères spéciaux sont autorisés.";
+        }
+    }
+
+    if (!validationOk) {
+        QMessageBox::warning(this, "Recherche", messageErreur);
         return;
     }
 
-    QSqlQueryModel* model = Seance::rechercher(key);
+    // Limiter la longueur affichée dans l'interface
+    if (key.length() > 50) {
+        QMessageBox::information(this, "Recherche",
+                                 "Le terme de recherche est trop long. Il a été tronqué.");
+        key = key.left(50);
+        if (ui->lineEdit_Recherche_2) {
+            ui->lineEdit_Recherche_2->setText(key);
+        }
+    }
+
+    QSqlQueryModel* model = nullptr;
+
+    // Utiliser la recherche spécifique pour Date et Lieu
+    if (critere == "Date" || critere == "Lieu_depart") {
+        model = Seance::rechercherParCritere(critere, key);
+    } else {
+        // Recherche générique pour les autres critères
+        model = Seance::rechercher(key);
+    }
 
     if (!model) {
-        QMessageBox::critical(this, "Recherche", "Erreur lors de la recherche.");
+        QMessageBox::critical(this, "Recherche",
+                              "Erreur lors de la recherche ou terme de recherche invalide.");
         return;
     }
 
@@ -303,7 +382,12 @@ void MainWindow::on_pushButton_Rechercher2_clicked()
     delete model;
 
     if (rowCount == 0) {
-        QMessageBox::information(this, "Recherche", "Aucun résultat trouvé pour \"" + key + "\".");
+        QMessageBox::information(this, "Recherche",
+                                 QString("Aucun résultat trouvé pour \"%1\" avec le critère \"%2\".\n"
+                                         "Vérifiez l'orthographe ou essayez d'autres termes.").arg(key).arg(critere));
+    } else {
+        QMessageBox::information(this, "Recherche",
+                                 QString("%1 résultat(s) trouvé(s) pour \"%2\" avec le critère \"%3\".").arg(rowCount).arg(key).arg(critere));
     }
 }
 
@@ -331,6 +415,12 @@ void MainWindow::on_pushButton_TrierSeance_clicked()
         return;
     }
 
+    // Validation du critère de tri
+    if (!Seance::isValidSortCriteria(critere)) {
+        QMessageBox::warning(this, "Erreur", "Critère de tri non valide: " + critere);
+        return;
+    }
+
     qDebug() << "Tri demandé avec critère:" << critere;
 
     QMap<QString, int> mapping;
@@ -346,7 +436,8 @@ void MainWindow::on_pushButton_TrierSeance_clicked()
         ui->tabS->setSortingEnabled(true);
         ui->tabS->sortByColumn(colonne, Qt::AscendingOrder);
         qDebug() << "Tri effectué sur la colonne:" << colonne;
-        QMessageBox::information(this, "Succès", "Tri effectué avec succès !");
+        QMessageBox::information(this, "Succès",
+                                 QString("Tri effectué avec succès sur le critère: %1").arg(critere));
     } else {
         QMessageBox::warning(this, "Erreur", "Critère de tri non reconnu: " + critere);
     }
@@ -389,7 +480,7 @@ void MainWindow::on_pb_annuler_ajout_materiel_clicked()
     if (ui->hArr) ui->hArr->setTime(QTime(9,0));
 }
 
-// ===== STATISTIQUES - SOLUTION GARANTIE =====
+// ===== STATISTIQUES AVEC GRAPHIQUES VISUELS =====
 
 void MainWindow::showStats()
 {
@@ -406,53 +497,181 @@ void MainWindow::showStats()
         return;
     }
 
-    QString message = "📊 STATISTIQUES DES SÉANCES\n\n";
-    message += QString("• Nombre total de séances : %1\n").arg(totalSeances);
-    message += QString("• Revenu total : %1 €\n\n").arg(QString::number(revenuTotal, 'f', 2));
-
-    if (!seancesParType.isEmpty()) {
-        message += "SÉANCES PAR TYPE :\n";
-        for (auto it = seancesParType.begin(); it != seancesParType.end(); ++it) {
-            double pourcentage = (it.value() * 100.0) / totalSeances;
-            message += QString("  - %1 : %2 (%3%)\n").arg(it.key()).arg(it.value()).arg(QString::number(pourcentage, 'f', 1));
-        }
-        message += "\n";
-    }
-
-    if (!seancesParMois.isEmpty()) {
-        message += "SÉANCES PAR MOIS :\n";
-        for (auto it = seancesParMois.begin(); it != seancesParMois.end(); ++it) {
-            double pourcentage = (it.value() * 100.0) / totalSeances;
-            message += QString("  - %1 : %2 séances (%3%)\n").arg(it.key()).arg(it.value()).arg(QString::number(pourcentage, 'f', 1));
-        }
-    }
-
-    // Afficher dans une fenêtre
+    // Créer la fenêtre de statistiques
     QDialog *statsDialog = new QDialog(this);
-    statsDialog->setWindowTitle("Statistiques des Séances - Driving School");
-    statsDialog->setMinimumSize(500, 400);
+    statsDialog->setWindowTitle("📊 Statistiques des Séances - Driving School");
+    statsDialog->setMinimumSize(1000, 700);
+    statsDialog->setStyleSheet("QDialog { background-color: #f5f5f5; }");
 
-    QVBoxLayout *layout = new QVBoxLayout(statsDialog);
+    QVBoxLayout *mainLayout = new QVBoxLayout(statsDialog);
 
-    QTextEdit *textEdit = new QTextEdit();
-    textEdit->setPlainText(message);
-    textEdit->setReadOnly(true);
-    textEdit->setFont(QFont("Arial", 10));
+    // === EN-TÊTE AVEC LES CHIFFRES CLÉS ===
+    QWidget *headerWidget = new QWidget();
+    headerWidget->setStyleSheet("background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2c3e50, stop:1 #3498db); color: white; padding: 15px; border-radius: 10px;");
+    QHBoxLayout *headerLayout = new QHBoxLayout(headerWidget);
 
+    QLabel *totalLabel = new QLabel(QString("📈 %1\nSéances Total").arg(totalSeances));
+    totalLabel->setStyleSheet("font-size: 16px; font-weight: bold; background: rgba(255,255,255,0.2); padding: 10px; border-radius: 5px;");
+    totalLabel->setAlignment(Qt::AlignCenter);
+
+    QLabel *revenuLabel = new QLabel(QString("💰 %1 €\nRevenu Total").arg(QString::number(revenuTotal, 'f', 2)));
+    revenuLabel->setStyleSheet("font-size: 16px; font-weight: bold; background: rgba(255,255,255,0.2); padding: 10px; border-radius: 5px;");
+    revenuLabel->setAlignment(Qt::AlignCenter);
+
+    headerLayout->addWidget(totalLabel);
+    headerLayout->addWidget(revenuLabel);
+    headerLayout->addStretch();
+
+    mainLayout->addWidget(headerWidget);
+
+    // === CONTENEUR POUR LES GRAPHIQUES ===
+    QHBoxLayout *chartsLayout = new QHBoxLayout();
+
+    // === GRAPHIQUE CAMEMBERT - SÉANCES PAR TYPE ===
+    if (!seancesParType.isEmpty()) {
+        QWidget *pieChartContainer = new QWidget();
+        pieChartContainer->setStyleSheet("background: white; padding: 15px; border-radius: 10px; border: 1px solid #ddd;");
+        QVBoxLayout *pieLayout = new QVBoxLayout(pieChartContainer);
+
+        createPieChart(seancesParType, "Répartition des Séances par Type", pieLayout);
+        chartsLayout->addWidget(pieChartContainer);
+    }
+
+    // === GRAPHIQUE BARRES - SÉANCES PAR MOIS ===
+    if (!seancesParMois.isEmpty()) {
+        QWidget *barChartContainer = new QWidget();
+        barChartContainer->setStyleSheet("background: white; padding: 15px; border-radius: 10px; border: 1px solid #ddd;");
+        QVBoxLayout *barLayout = new QVBoxLayout(barChartContainer);
+
+        createBarChart(seancesParMois, "Séances par Mois", barLayout);
+        chartsLayout->addWidget(barChartContainer);
+    }
+
+    mainLayout->addLayout(chartsLayout);
+
+    // === BOUTON FERMER ===
     QPushButton *closeButton = new QPushButton("Fermer");
+    closeButton->setStyleSheet("QPushButton { background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; }"
+                               "QPushButton:hover { background: #c0392b; }");
+    closeButton->setFixedWidth(100);
+    mainLayout->addWidget(closeButton, 0, Qt::AlignCenter);
+
     connect(closeButton, &QPushButton::clicked, statsDialog, &QDialog::close);
 
-    layout->addWidget(textEdit);
-    layout->addWidget(closeButton);
-
     statsDialog->exec();
+}
+
+void MainWindow::createPieChart(const QMap<QString, int>& data, const QString& title, QLayout* layout)
+{
+    // Titre
+    QLabel *titleLabel = new QLabel(title);
+    titleLabel->setStyleSheet("font-size: 14px; font-weight: bold; color: #2c3e50; margin-bottom: 10px;");
+    titleLabel->setAlignment(Qt::AlignCenter);
+    layout->addWidget(titleLabel);
+
+    // Créer le graphique camembert
+    QPieSeries *series = new QPieSeries();
+
+    // Couleurs pour les segments
+    QList<QColor> colors = {
+        QColor("#3498db"), QColor("#e74c3c"), QColor("#2ecc71"),
+        QColor("#f39c12"), QColor("#9b59b6"), QColor("#1abc9c"),
+        QColor("#d35400"), QColor("#34495e")
+    };
+
+    int colorIndex = 0;
+    int total = 0;
+    for (int value : data) {
+        total += value;
+    }
+
+    for (auto it = data.begin(); it != data.end(); ++it) {
+        QString label = QString("%1\n%2 (%3%)")
+        .arg(it.key())
+            .arg(it.value())
+            .arg(QString::number((it.value() * 100.0) / total, 'f', 1));
+
+        QPieSlice *slice = series->append(label, it.value());
+        slice->setColor(colors[colorIndex % colors.size()]);
+        slice->setLabelVisible(true);
+        slice->setLabelPosition(QPieSlice::LabelOutside);
+        slice->setBorderColor(Qt::white);
+        slice->setBorderWidth(2);
+
+        colorIndex++;
+    }
+
+    QChart *chart = new QChart();
+    chart->addSeries(series);
+    chart->setTitle("");
+    chart->setAnimationOptions(QChart::AllAnimations);
+    chart->legend()->setVisible(true);
+    chart->legend()->setAlignment(Qt::AlignRight);
+    chart->setBackgroundBrush(QBrush(Qt::transparent));
+
+    QChartView *chartView = new QChartView(chart);
+    chartView->setRenderHint(QPainter::Antialiasing);
+    chartView->setMinimumSize(400, 300);
+
+    layout->addWidget(chartView);
+}
+
+void MainWindow::createBarChart(const QMap<QString, int>& data, const QString& title, QLayout* layout)
+{
+    // Titre
+    QLabel *titleLabel = new QLabel(title);
+    titleLabel->setStyleSheet("font-size: 14px; font-weight: bold; color: #2c3e50; margin-bottom: 10px;");
+    titleLabel->setAlignment(Qt::AlignCenter);
+    layout->addWidget(titleLabel);
+
+    // Créer le graphique en barres
+    QBarSeries *series = new QBarSeries();
+
+    QBarSet *barSet = new QBarSet("Nombre de séances");
+    barSet->setColor(QColor("#3498db"));
+
+    QStringList categories;
+
+    for (auto it = data.begin(); it != data.end(); ++it) {
+        *barSet << it.value();
+        categories << it.key();
+    }
+
+    series->append(barSet);
+    series->setLabelsVisible(true);
+    series->setLabelsPosition(QAbstractBarSeries::LabelsOutsideEnd);
+
+    QChart *chart = new QChart();
+    chart->addSeries(series);
+    chart->setTitle("");
+    chart->setAnimationOptions(QChart::AllAnimations);
+    chart->setBackgroundBrush(QBrush(Qt::transparent));
+
+    // Axe des X
+    QBarCategoryAxis *axisX = new QBarCategoryAxis();
+    axisX->append(categories);
+    chart->addAxis(axisX, Qt::AlignBottom);
+    series->attachAxis(axisX);
+
+    // Axe des Y
+    QValueAxis *axisY = new QValueAxis();
+    axisY->setLabelFormat("%d");
+    axisY->setTitleText("Nombre de séances");
+    chart->addAxis(axisY, Qt::AlignLeft);
+    series->attachAxis(axisY);
+
+    QChartView *chartView = new QChartView(chart);
+    chartView->setRenderHint(QPainter::Antialiasing);
+    chartView->setMinimumSize(400, 300);
+
+    layout->addWidget(chartView);
 }
 
 // Méthode originale gardée pour compatibilité
 void MainWindow::on_btnStats_2_clicked()
 {
     qDebug() << "Méthode on_btnStats_2_clicked() appelée";
-    showStats(); // Appeler la même fonction
+    showStats();
 }
 
 void MainWindow::on_headerSectionClicked(int logicalIndex)
@@ -469,6 +688,12 @@ void MainWindow::on_headerSectionClicked(int logicalIndex)
     case 5: colonne = "LIEU_DEPART"; break;
     case 6: colonne = "PRIX"; break;
     default: colonne = "ID_SEANCE"; break;
+    }
+
+    // Validation du critère de tri
+    if (!Seance::isValidSortCriteria(colonne)) {
+        QMessageBox::warning(this, "Tri", "Critère de tri non valide.");
+        return;
     }
 
     rechargerTableSeancesAvecTri(colonne);
@@ -516,20 +741,85 @@ void MainWindow::on_pushButton_76_clicked()
     }
 }
 
+// Validation en temps réel pour le champ de recherche
+void MainWindow::on_lineEdit_Recherche_2_textChanged(const QString &text)
+{
+    const QString critere = ui->rechS ? ui->rechS->currentText() : QString();
+
+    if (text.length() > 50) {
+        // Limiter à 50 caractères
+        ui->lineEdit_Recherche_2->setText(text.left(50));
+        QToolTip::showText(ui->lineEdit_Recherche_2->mapToGlobal(QPoint(0,0)),
+                           "Limité à 50 caractères", ui->lineEdit_Recherche_2);
+        return;
+    }
+
+    // Validation spécifique selon le critère
+    if (critere == "Date") {
+        if (!text.isEmpty() && !Seance::isValidDateSearch(text)) {
+            QToolTip::showText(ui->lineEdit_Recherche_2->mapToGlobal(QPoint(0,0)),
+                               "Format: DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY\nEx: 25/12/2024",
+                               ui->lineEdit_Recherche_2);
+        } else {
+            QToolTip::hideText();
+        }
+    } else if (critere == "Lieu_depart") {
+        if (!text.isEmpty() && !Seance::isValidLieuSearch(text)) {
+            QToolTip::showText(ui->lineEdit_Recherche_2->mapToGlobal(QPoint(0,0)),
+                               "Caractères autorisés: lettres, chiffres, espaces, - _ . , ! ? ( ) & : /",
+                               ui->lineEdit_Recherche_2);
+        } else {
+            QToolTip::hideText();
+        }
+    } else {
+        // Validation générique
+        QRegularExpression dangerousChars(R"([;\\'"])");
+        if (dangerousChars.match(text).hasMatch()) {
+            QToolTip::showText(ui->lineEdit_Recherche_2->mapToGlobal(QPoint(0,0)),
+                               "Caractères spéciaux dangereux détectés", ui->lineEdit_Recherche_2);
+
+            // Nettoyer automatiquement
+            QString cleaned = text;
+            cleaned.remove(dangerousChars);
+            if (cleaned != text) {
+                ui->lineEdit_Recherche_2->setText(cleaned);
+            }
+        } else if (!text.isEmpty()) {
+            QToolTip::hideText();
+        }
+    }
+}
+
 // ===== Stubs vides =====
-void MainWindow::on_candidat_clicked(){} void MainWindow::on_candidat_2_clicked(){}
-void MainWindow::on_candidat_3_clicked(){} void MainWindow::on_candidat_4_clicked(){}
-void MainWindow::on_candidat_5_clicked(){} void MainWindow::on_vehicule_clicked(){}
-void MainWindow::on_vehicule_2_clicked(){} void MainWindow::on_vehicule_3_clicked(){}
-void MainWindow::on_vehicule_4_clicked(){} void MainWindow::on_vehicule_5_clicked(){}
-void MainWindow::on_employee_clicked(){} void MainWindow::on_employee_2_clicked(){}
-void MainWindow::on_employee_3_clicked(){} void MainWindow::on_employee_5_clicked(){}
-void MainWindow::on_employee_6_clicked(){} void MainWindow::on_seance_clicked(){}
-void MainWindow::on_seance_2_clicked(){} void MainWindow::on_seance_3_clicked(){}
-void MainWindow::on_seance_5_clicked(){} void MainWindow::on_seance_6_clicked(){}
-void MainWindow::on_examen_clicked(){} void MainWindow::on_examen_2_clicked(){}
-void MainWindow::on_examen_3_clicked(){} void MainWindow::on_examen_4_clicked(){}
-void MainWindow::on_examen_5_clicked(){} void MainWindow::on_pushButton_clicked(){}
-void MainWindow::on_pushButton_2_clicked(){} void MainWindow::on_pushButton_9_clicked(){}
-void MainWindow::on_pushButton_Ajouter_clicked(){} void MainWindow::on_pushButton_supprimer_clicked(){}
-void MainWindow::on_pushButton_54_clicked(){} void MainWindow::on_pushButton_Rechercher_clicked(){}
+void MainWindow::on_candidat_clicked(){}
+void MainWindow::on_candidat_2_clicked(){}
+void MainWindow::on_candidat_3_clicked(){}
+void MainWindow::on_candidat_4_clicked(){}
+void MainWindow::on_candidat_5_clicked(){}
+void MainWindow::on_vehicule_clicked(){}
+void MainWindow::on_vehicule_2_clicked(){}
+void MainWindow::on_vehicule_3_clicked(){}
+void MainWindow::on_vehicule_4_clicked(){}
+void MainWindow::on_vehicule_5_clicked(){}
+void MainWindow::on_employee_clicked(){}
+void MainWindow::on_employee_2_clicked(){}
+void MainWindow::on_employee_3_clicked(){}
+void MainWindow::on_employee_5_clicked(){}
+void MainWindow::on_employee_6_clicked(){}
+void MainWindow::on_seance_clicked(){}
+void MainWindow::on_seance_2_clicked(){}
+void MainWindow::on_seance_3_clicked(){}
+void MainWindow::on_seance_5_clicked(){}
+void MainWindow::on_seance_6_clicked(){}
+void MainWindow::on_examen_clicked(){}
+void MainWindow::on_examen_2_clicked(){}
+void MainWindow::on_examen_3_clicked(){}
+void MainWindow::on_examen_4_clicked(){}
+void MainWindow::on_examen_5_clicked(){}
+void MainWindow::on_pushButton_clicked(){}
+void MainWindow::on_pushButton_2_clicked(){}
+void MainWindow::on_pushButton_9_clicked(){}
+void MainWindow::on_pushButton_Ajouter_clicked(){}
+void MainWindow::on_pushButton_supprimer_clicked(){}
+void MainWindow::on_pushButton_54_clicked(){}
+void MainWindow::on_pushButton_Rechercher_clicked(){}

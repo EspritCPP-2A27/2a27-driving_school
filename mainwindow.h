@@ -31,6 +31,25 @@ private slots:
     void on_headerSectionClicked(int logicalIndex);
     void on_pushButton_76_clicked(); // Export PDF
 
+    // ===== Validation en temps réel =====
+    void on_lineEdit_Recherche_2_textChanged(const QString &text);
+
+    // ===== Statistiques avec graphiques =====
+    void on_btnStats_2_clicked();
+    void showStats();
+
+private:
+    Ui::MainWindow *ui;
+
+    void initSeanceTable();
+    void rechargerTableSeancesDepuisDB();
+    void rechargerTableSeancesAvecTri(const QString& colonneTri);
+
+    // Méthodes pour créer les graphiques
+    void createPieChart(const QMap<QString, int>& data, const QString& title, QLayout* layout);
+    void createBarChart(const QMap<QString, int>& data, const QString& title, QLayout* layout);
+
+private slots:
     // ===== (Stubs) — gardés vides si ton .ui les connecte =====
     void on_candidat_clicked();
     void on_candidat_2_clicked();
@@ -64,17 +83,5 @@ private slots:
     void on_pushButton_supprimer_clicked();
     void on_pushButton_54_clicked();
     void on_pushButton_Rechercher_clicked();
-
-private:
-    Ui::MainWindow *ui;
-
-    void initSeanceTable();
-    void rechargerTableSeancesDepuisDB();
-    void rechargerTableSeancesAvecTri(const QString& colonneTri);
-
-private slots:
-// ... vos autres slots existants ...
-void on_btnStats_2_clicked();
-void showStats();  // <- AJOUTEZ CETTE LIGNE
 };
 #endif // MAINWINDOW_H

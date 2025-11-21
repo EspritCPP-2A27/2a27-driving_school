@@ -192,10 +192,179 @@ QSqlQueryModel* Seance::afficher()
     return m;
 }
 
-QSqlQueryModel* Seance::rechercher(const QString& motCle)
+// Validation des critères de recherche
+bool Seance::isValidSearchCriteria(const QString& critere)
+{
+    QStringList criteresValides = {"Date", "Lieu_depart", "ID_SEANCE", "COLUMN2", "HEURE_DEBUT", "HEURE_ARRIVER", "PRIX"};
+    return criteresValides.contains(critere, Qt::CaseInsensitive);
+}
+
+// Validation des critères de tri
+bool Seance::isValidSortCriteria(const QString& critere)
+{
+    QStringList criteresValides = {"Heure_Debut", "Heure_Arriver", "ID_SEANCE", "COLUMN2",
+                                   "DATE_SEANCE", "LIEU_DEPART", "PRIX"};
+    return criteresValides.contains(critere, Qt::CaseInsensitive);
+}
+
+// Nettoyage de l'entrée de recherche
+QString Seance::sanitizeSearchInput(const QString& input)
+{
+    QString sanitized = input.trimmed();
+
+    // Limiter la longueur
+    if (sanitized.length() > 100) {
+        sanitized = sanitized.left(100);
+    }
+
+    // Supprimer les caractères dangereux pour SQL (même si on utilise les paramètres)
+    sanitized.remove(QRegularExpression(R"([;\\'"])"));
+
+    return sanitized;
+}
+
+// Validation de l'entrée de recherche
+bool Seance::isValidSearchInput(const QString& input)
+{
+    if (input.isEmpty()) return false;
+
+    // Vérifier la longueur
+    if (input.length() > 100) return false;
+
+    // Vérifier les caractères autorisés (lettres, chiffres, espaces, certains caractères spéciaux)
+    QRegularExpression re(R"(^[A-Za-z0-9À-ÿ\s\-_.,!?@#&*()+=:;/ ]{1,100}$)");
+    return re.match(input).hasMatch();
+}
+
+// Validation spécifique pour la recherche par date
+bool Seance::isValidDateSearch(const QString& dateStr)
+{
+    if (dateStr.isEmpty()) return false;
+
+    // Formats de date acceptés : DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY
+    QRegularExpression dateRegex(R"(^\d{1,2}[/\-\.]\d{1,2}[/\-\.]\d{4}$)");
+    if (!dateRegex.match(dateStr).hasMatch()) {
+        return false;
+    }
+
+    // Vérifier que c'est une date valide
+    QDate date = QDate::fromString(dateStr, "dd/MM/yyyy");
+    if (!date.isValid()) {
+        date = QDate::fromString(dateStr, "dd-MM-yyyy");
+        if (!date.isValid()) {
+            date = QDate::fromString(dateStr, "dd.MM.yyyy");
+            if (!date.isValid()) {
+                return false;
+            }
+        }
+    }
+
+    // Vérifier que la date n'est pas dans le futur
+    if (date > QDate::currentDate()) {
+        return false;
+    }
+
+    return true;
+}
+
+// Validation spécifique pour la recherche par lieu
+bool Seance::isValidLieuSearch(const QString& lieu)
+{
+    if (lieu.isEmpty()) return false;
+
+    // Limiter la longueur
+    if (lieu.length() > 100) return false;
+
+    // Caractères autorisés pour un lieu
+    QRegularExpression re(R"(^[A-Za-z0-9À-ÿ\s\-_.,!?()&:/]{1,100}$)");
+    return re.match(lieu).hasMatch();
+}
+
+// Recherche par critère spécifique
+QSqlQueryModel* Seance::rechercherParCritere(const QString& critere, const QString& valeur)
 {
     auto* m = new QSqlQueryModel();
-    const QString like = "%" + motCle + "%";
+    QString queryString;
+    QSqlQuery q;
+
+    if (critere == "Date") {
+        // Recherche exacte par date
+        queryString =
+            "SELECT ID_SEANCE, COLUMN2, "
+            "       TO_CHAR(DATE_SEANCE,'DD/MM/YYYY') AS DATE_S, "
+            "       TO_CHAR(HEURE_DEBUT,'HH24:MI') AS H_DEB, "
+            "       TO_CHAR(HEURE_ARRIVER,'HH24:MI') AS H_ARR, "
+            "       LIEU_DEPART, PRIX "
+            "FROM SEANCE "
+            "WHERE TO_CHAR(DATE_SEANCE,'DD/MM/YYYY') = :valeur";
+    } else if (critere == "Lieu_depart") {
+        // Recherche partielle par lieu (case insensitive)
+        queryString =
+            "SELECT ID_SEANCE, COLUMN2, "
+            "       TO_CHAR(DATE_SEANCE,'DD/MM/YYYY') AS DATE_S, "
+            "       TO_CHAR(HEURE_DEBUT,'HH24:MI') AS H_DEB, "
+            "       TO_CHAR(HEURE_ARRIVER,'HH24:MI') AS H_ARR, "
+            "       LIEU_DEPART, PRIX "
+            "FROM SEANCE "
+            "WHERE LOWER(LIEU_DEPART) LIKE LOWER(:valeur)";
+    } else {
+        // Recherche générique pour autres critères
+        queryString =
+            "SELECT ID_SEANCE, COLUMN2, "
+            "       TO_CHAR(DATE_SEANCE,'DD/MM/YYYY') AS DATE_S, "
+            "       TO_CHAR(HEURE_DEBUT,'HH24:MI') AS H_DEB, "
+            "       TO_CHAR(HEURE_ARRIVER,'HH24:MI') AS H_ARR, "
+            "       LIEU_DEPART, PRIX "
+            "FROM SEANCE "
+            "WHERE LOWER(" + critere + ") LIKE LOWER(:valeur)";
+    }
+
+    if (!q.prepare(queryString)) {
+        qWarning() << "[SEANCE rechercherParCritere] prepare:" << q.lastError().text();
+        delete m;
+        return nullptr;
+    }
+
+    // Pour le lieu, on utilise LIKE avec %...%
+    if (critere == "Lieu_depart") {
+        q.bindValue(":valeur", "%" + valeur + "%");
+    } else if (critere == "Date") {
+        // Pour la date, recherche exacte
+        q.bindValue(":valeur", valeur);
+    } else {
+        // Pour les autres critères, recherche partielle
+        q.bindValue(":valeur", "%" + valeur + "%");
+    }
+
+    if (!q.exec()) {
+        qWarning() << "[SEANCE rechercherParCritere] exec:" << q.lastError().text();
+        delete m;
+        return nullptr;
+    }
+
+    m->setQuery(std::move(q));
+
+    m->setHeaderData(0, Qt::Horizontal, "ID");
+    m->setHeaderData(1, Qt::Horizontal, "Type");
+    m->setHeaderData(2, Qt::Horizontal, "Date");
+    m->setHeaderData(3, Qt::Horizontal, "Heure début");
+    m->setHeaderData(4, Qt::Horizontal, "Heure arrivée");
+    m->setHeaderData(5, Qt::Horizontal, "Lieu");
+    m->setHeaderData(6, Qt::Horizontal, "Prix");
+
+    return m;
+}
+
+QSqlQueryModel* Seance::rechercher(const QString& motCle)
+{
+    // Validation de l'entrée
+    if (!isValidSearchInput(motCle)) {
+        qWarning() << "[SEANCE rechercher] Entrée de recherche invalide:" << motCle;
+        return nullptr;
+    }
+
+    auto* m = new QSqlQueryModel();
+    const QString like = "%" + sanitizeSearchInput(motCle) + "%";
     QSqlQuery q;
 
     q.prepare(
