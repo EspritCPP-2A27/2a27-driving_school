@@ -8,6 +8,11 @@
 #include <QTableWidget>
 #include <QTableWidgetItem>
 #include <QSqlDatabase>
+#include <QSerialPort>
+#include <QSerialPortInfo>
+#include "arduino.h"
+
+
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -114,6 +119,13 @@ private slots:
 
 
     void on_calendarWidget_clicked(const QDate &date);
+
+
+    void afficherToast(QString message);
+    void jouerSonNotification();
+    void verifierDateAssuranceEtNotifier(const QString &matricule,const QDate &dateAssurance);
+    void verifierAssurancesDepuisBase();
+
     void marquerDatesCalendrier();
 
     void on_pushButton_75_clicked();
@@ -157,8 +169,53 @@ private slots:
 
     void on_pushButton_77_clicked();
 
-private:
+   void lireArduino();
+    void on_pushButton_Off_clicked();
+   void on_pushButton_On_clicked();
+
+
+   void on_pushButton_81_clicked();
+
+   void on_pdfseance_clicked();
+   void createBarChart(const QMap<QString, int>& data, const QString& title, QLayout* layout);
+
+   void createPieChart(const QMap<QString, int>& data, const QString& title, QLayout* layout);
+   void showStats();
+
+   void on_triseance_clicked();
+   void on_statseance_clicked();
+
+   void on_tabS_cellClicked(int row, int column);
+   void readArduino();
+   void checkRFIDCard(const QString &cardUID);
+   void on_pushButton_RegisterRFID_clicked();
+   void on_pushButton_RemoveRFID_clicked();
+   void on_pushButton_TestRFID_clicked();
+   void processRFIDRegistration(const QString &cardUID);
+
+   void processRFIDCard(const QString &cardUID);
+   void on_pushButton_CancelRegister_clicked();
+
+   void highlightSelectedRow(int row);
+   void debugTableStructure();
+   void on_tableWidget_Employe_cellClicked(int row, int column);
+
+   void on_pushButton_RegisterRFID__clicked();
+   void diagnoseRFIDProblem();
+
+   private:
     Ui::MainWindow *ui;
+    QSerialPort *arduino;
+    QString portName;
+
+    bool isRegisteringMode;
+    QString employeeToRegister;
+    QDialog* rfidWaitDialog;
+    QString getTableCellText(int row, int column);
+
+
+    Arduino A;
+
 };
 
 #endif // MAINWINDOW_H
